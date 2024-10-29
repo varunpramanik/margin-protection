@@ -350,7 +350,7 @@ export class Campaigns extends DisplayVideoApiClient {
    *
    * @param advertiserId The DV360 Advertiser identifier
    */
-  constructor(private readonly advertiserId: string) {
+  constructor(protected readonly advertiserId: string) {
     super('campaigns');
   }
 
@@ -471,7 +471,7 @@ export class InsertionOrders extends DisplayVideoApiClient {
    *
    * @param advertiserId The DV360 Advertiser identifier
    */
-  constructor(private readonly advertiserId: string) {
+  constructor(protected readonly advertiserId: string) {
     super('insertionOrders');
   }
 
@@ -599,7 +599,7 @@ export class LineItems extends DisplayVideoApiClient {
    *
    * @param advertiserId The DV360 Advertiser identifier
    */
-  constructor(private readonly advertiserId: string) {
+  constructor(protected readonly advertiserId: string) {
     super('lineItems');
   }
 

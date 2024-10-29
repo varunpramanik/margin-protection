@@ -55,6 +55,8 @@ import {
   ClientInterface,
   DisplayVideoClientTypes,
   IDType,
+  InsertionOrderMap,
+  InsertionOrderTuple,
   LineItemBudgetReportInterface,
   RuleGranularity,
   RuleParams,
@@ -107,7 +109,7 @@ export interface RuleStoreEntry<
  * requests, like {@link getAllInsertionOrders}.
  */
 export class Client implements ClientInterface {
-  private storedInsertionOrders: InsertionOrder[] = [];
+  private storedInsertionOrders: InsertionOrderMap = {};
   private storedLineItems: LineItem[] = [];
   private storedCampaigns: RecordInfo[] = [];
   private savedBudgetReport?: BudgetReportInterface;
@@ -208,50 +210,62 @@ export class Client implements ClientInterface {
     }
     return this.storedLineItems;
   }
-  getAllInsertionOrders(): InsertionOrder[] {
+  getAllInsertionOrders(): InsertionOrderMap {
+    function entries(io: InsertionOrder): InsertionOrderTuple {
+      return [io.getId(), io];
+    }
     if (!this.storedInsertionOrders.length) {
-      this.storedInsertionOrders =
-        this.args.idType === IDType.ADVERTISER
-          ? this.getAllInsertionOrdersForAdvertiser(this.args.id)
-          : this.getAllAdvertisersForPartner().reduce(
-              (arr, { advertiserId }) =>
-                arr.concat(
-                  this.getAllInsertionOrdersForAdvertiser(advertiserId),
-                ),
-              [] as InsertionOrder[],
-            );
+      let insertionOrders: Array<InsertionOrderTuple> = [];
+      if (this.args.idType === IDType.ADVERTISER) {
+        insertionOrders = this.getAllInsertionOrdersForAdvertiser(
+          this.args.id,
+        ).map(entries);
+      } else {
+        for (const { advertiserId } of this.getAllAdvertisersForPartner()) {
+          for (const io of this.getAllInsertionOrdersForAdvertiser(
+            advertiserId,
+          )) {
+            insertionOrders.push([io.getId(), io]);
+          }
+        }
+      }
+      this.storedInsertionOrders = Object.fromEntries(insertionOrders);
     }
     return this.storedInsertionOrders;
   }
 
   async getAllCampaigns(): Promise<RecordInfo[]> {
     if (!this.storedCampaigns.length) {
-      const campaignsWithSegments = this.getAllInsertionOrders().reduce(
-        (prev, io) => {
-          prev.add(io.getCampaignId());
-          return prev;
-        },
-        new Set<string>(),
-      );
+      const campaignsWithSegments = Object.values(
+        this.getAllInsertionOrders(),
+      ).reduce((prev, io) => {
+        prev.add(io.getCampaignId());
+        return prev;
+      }, new Set<string>());
 
-      const result =
-        this.args.idType === IDType.ADVERTISER
-          ? this.getAllCampaignsForAdvertiser(this.args.id).filter((campaign) =>
-              campaignsWithSegments.has(campaign.id),
-            )
-          : this.getAllAdvertisersForPartner().reduce(
-              (arr, { advertiserId, advertiserName }) =>
-                arr.concat(
-                  this.getAllCampaignsForAdvertiser(
-                    advertiserId,
-                    advertiserName,
-                  ).filter((campaign) =>
-                    campaignsWithSegments.has(campaign.id),
-                  ),
-                ),
-              [] as RecordInfo[],
-            );
-      this.storedCampaigns = result;
+      let campaigns: RecordInfo[] = [];
+      if (this.args.idType === IDType.ADVERTISER) {
+        campaigns = this.getAllCampaignsForAdvertiser(this.args.id).filter(
+          (campaign) => campaignsWithSegments.has(campaign.id),
+        );
+      } else {
+        for (const {
+          advertiserId,
+          advertiserName,
+        } of this.getAllAdvertisersForPartner()) {
+          console.log({ advertiserId });
+          campaigns = campaigns.concat(
+            this.getAllCampaignsForAdvertiser(
+              advertiserId,
+              advertiserName,
+            ).filter((campaign) => {
+              console.log({ campaign: campaign.id });
+              return campaignsWithSegments.has(campaign.id);
+            }),
+          );
+        }
+      }
+      this.storedCampaigns = campaigns;
     }
 
     return this.storedCampaigns;
@@ -452,7 +466,7 @@ export class RuleRange extends AbstractRuleRange<DisplayVideoClientTypes> {
       campaignId = id;
     } else {
       const insertionOrders = this.client.getAllInsertionOrders();
-      campaignId = insertionOrders[0] && insertionOrders[0].getCampaignId();
+      campaignId = insertionOrders[id] && insertionOrders[id].getCampaignId();
     }
     return [
       campaignMap[campaignId].advertiserId,

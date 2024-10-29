@@ -105,7 +105,7 @@ export interface DateRange {
 export interface ClientInterface
   extends BaseClientInterface<DisplayVideoClientTypes> {
   dao: { accessors: Accessors };
-  getAllInsertionOrders(): InsertionOrder[];
+  getAllInsertionOrders(): InsertionOrderMap;
   getAllLineItems(): LineItem[];
   getBudgetReport(args: DateRange): BudgetReportInterface;
   getLineItemBudgetReport(args: DateRange): LineItemBudgetReportInterface;
@@ -173,3 +173,16 @@ export interface Accessors {
   insertionOrders: typeof InsertionOrders;
   lineItems: typeof LineItems;
 }
+
+/**
+ * A key mapping of insertion orders.
+ */
+export type InsertionOrderMap = { [insertionOrderId: string]: InsertionOrder };
+
+/**
+ * An array of tuples that can be passed to {@link Object.fromEntries} to make an {@link InsertionOrderMap}.
+ */
+export type InsertionOrderTuple = [
+  insertionOrderId: string,
+  insertionOrder: InsertionOrder,
+];
